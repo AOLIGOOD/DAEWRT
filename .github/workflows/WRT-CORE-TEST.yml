@@ -1,0 +1,99 @@
+#云编译公用核心
+name: WRT-CORE-TEST
+
+on:
+  workflow_call:
+    inputs:
+      WRT_CONFIG:
+        required: true
+        type: string
+      WRT_THEME:
+        required: true
+        type: string
+      WRT_NAME:
+        required: true
+        type: string
+      WRT_SSID:
+        required: true
+        type: string
+      WRT_WORD:
+        required: true
+        type: string
+      WRT_IP:
+        required: true
+        type: string
+      WRT_PW:
+        required: true
+        type: string
+      WRT_REPO:
+        required: true
+        type: string
+      WRT_BRANCH:
+        required: true
+        type: string
+      WRT_SOURCE:
+        required: false
+        type: string
+      WRT_PACKAGE:
+        required: false
+        type: string
+      WRT_TEST:
+        required: false
+        type: string
+      CI_NAME:
+        required: false
+        type: string
+      WRT_ARCH:
+        required: false
+        type: string
+env:
+  GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+  WRT_CONFIG: ${{inputs.WRT_CONFIG}}
+  WRT_THEME: ${{inputs.WRT_THEME}}
+  WRT_NAME: ${{inputs.WRT_NAME}}
+  WRT_SSID: ${{inputs.WRT_SSID}}
+  WRT_WORD: ${{inputs.WRT_WORD}}
+  WRT_IP: ${{inputs.WRT_IP}}
+  WRT_PW: ${{inputs.WRT_PW}}
+  WRT_REPO: ${{inputs.WRT_REPO}}
+  WRT_BRANCH: ${{inputs.WRT_BRANCH}}
+  WRT_PACKAGE: ${{inputs.WRT_PACKAGE}}
+  WRT_TEST: ${{inputs.WRT_TEST}}
+  WRT_DIR: 'wrt'
+  CI_NAME: ${{inputs.CI_NAME}}
+  WRT_ARCH: ${{inputs.WRT_ARCH}}
+
+jobs:
+  core:
+    name: ${{inputs.WRT_SOURCE}}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Projects
+        uses: actions/checkout@main
+
+      - name: Initialization Values
+        run: |
+          echo "WRT_DATE=$(TZ=UTC-8 date +"%y.%m.%d-%H.%M.%S")" >> $GITHUB_ENV
+          echo "WRT_MARK=$(echo $GITHUB_REPOSITORY | cut -d '/' -f 1)" >> $GITHUB_ENV
+          echo "WRT_VER=$(echo $WRT_REPO | cut -d '/' -f 4)-$WRT_BRANCH" >> $GITHUB_ENV
+          echo "WRT_TARGET=$(grep -m 1 -oP '^CONFIG_TARGET_\K[\w]+(?=\=y)' ./Config/$WRT_CONFIG.txt | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
+          echo "WRT_KVER=none" >> $GITHUB_ENV
+          echo "WRT_LIST=none" >> $GITHUB_ENV
+
+          echo "WRT_CI=$WRT_CI" >> $GITHUB_ENV
+          [[ -z $WRT_ARCH ]] && {
+            export WRT_ARCH=$(sed -n 's/.*_DEVICE_\(.*\)_DEVICE_.*/\1/p' $GITHUB_WORKSPACE/Config/$WRT_CONFIG.txt | head -n 1)
+            echo "WRT_ARCH=$WRT_ARCH" >> $GITHUB_ENV
+          }
+          echo "$WRT_REPO/$WRT_BRANCH" > "$GITHUB_WORKSPACE/repo_flag"
+      - name: Clone Code
+        run: |
+          git clone --depth=1 --single-branch --branch $WRT_BRANCH $WRT_REPO ./wrt/
+
+          cd ./wrt/ && echo "WRT_HASH=$(git log -1 --pretty=format:'%h')" >> $GITHUB_ENV
+      - name: Custom Settings
+        run: |
+          . $GITHUB_WORKSPACE/Scripts/function.sh
+          cd ./wrt/    
+          generate_config && cat .config
+     

@@ -1,0 +1,17 @@
+#!/bin/sh
+# 仅在接口启动(ifup)时触发
+[ "$ACTION" = "ifup" ] || exit 0
+# 仅针对 wan 接口（根据你的实际接口名修改，通常是 wan 或 wan6）
+[ "$INTERFACE" = "wan" ] || exit 0
+# 避免并发执行和频繁重启
+(
+    # 使用 flock 确保只有一个实例在等待
+    exec 9>/var/lock/dae_hotplug.lock
+    if ! flock -n 9; then
+        exit 1
+    fi
+    # 延迟 10 秒，等待网络彻底稳定
+    sleep 10
+    # 重启服务
+    /etc/init.d/dae running && /etc/init.d/dae restart
+) &
